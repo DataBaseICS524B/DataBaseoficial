@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcustomdb_client.a CMakeFiles/customdb_client.dir/src/lib/DatabaseClient.cpp.o CMakeFiles/customdb_client.dir/src/lib/Connection.cpp.o CMakeFiles/customdb_client.dir/src/lib/client.cpp.o CMakeFiles/customdb_client.dir/src/core/catalog/Column.cpp.o CMakeFiles/customdb_client.dir/src/core/catalog/Table.cpp.o CMakeFiles/customdb_client.dir/src/core/catalog/Database.cpp.o CMakeFiles/customdb_client.dir/src/core/catalog/Catalog.cpp.o CMakeFiles/customdb_client.dir/src/core/storage/StorageEngine.cpp.o
+/usr/bin/ranlib libcustomdb_client.a

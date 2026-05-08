@@ -1,0 +1,217 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+bin/
+obj/
+lib/
+__pycache__/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CMakeUserPresets.json
+compile_commands.json
+*.cmake
+!CMakeLists.txt
+
+# Compiled files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.manifest
+
+# Test artifacts
+tests/*.log
+test_data*/
+*.test
+coverage/
+*.gcda
+*.gcno
+*.gcov
+
+# Data directory (user data, not committed)
+data/
+*.db
+*.json
+!vcpkg.json
+!CMakeSettings.json
+
+# vcpkg
+vcpkg/
+vcpkg_installed/
+vcpkg-manifest-install.log
+*.tar.gz
+*.zip
+
+# C# / .NET
+src/gui/bin/
+src/gui/obj/
+*.user
+*.suo
+*.cache
+*.csproj.user
+packages/
+.vs/
+*.pidb
+*.userprefs
+
+# Logs
+*.log
+logs/
+*.pid
+
+# Backup files
+*.bak
+*.backup
+*.orig
+*.rej
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Docker
+.dockerignore
+Dockerfile
+*.tar
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Performance profiles
+*.prof
+*.psess
+*.perf
+
+# Memory dumps
+*.dmp
+*.core
+*.stackdump
+
+# Editor files
+*.sublime-*
+*.kate-swp
+*.kate-swp
+.project
+.classpath
+
+# CustomDB specific
+# Avoid committing large data files
+*.dat
+*.bin
+dump_*.txt
+
+# Documentation build
+docs/_build/
+docs/api/
+
+# Conan
+conaninfo.txt
+conanbuildinfo.*
+conanbuildinfo.cmake
+conan.lock
+conan_imports_*
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.vcxproj.filters
+*.sln.docstates
+*.sln.ide
+*.filters
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.VC.opendb
+*.VC.db-shm
+*.VC.db-wal
+ipch/
+Debug/
+Release/
+x64/
+x86/
+Win32/
+obj/
+
+# Linux
+*.ko
+*.so.*
+*.mod
+*.mod.c
+.mod.o
+.cache
+.mod.o.cmd
+.ko.cmd
+
+# macOS
+*.dSYM/
+*.dSYM.zip
+*.framework/
+*.app/
+Icon?
+._*
+
+# Archives (unless you want to commit specific ones)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# Don't ignore scripts but ignore their outputs
+!scripts/*.sh
+!scripts/*.bat
+scripts/*.pid
+
+# Code coverage
+*.info
+coverage.xml
+*.cov
+*.lst
+
+# C++ profiling
+gmon.out
+gprof.out
+callgrind.out*
+cachegrind.out*
+
+# Conan cache
+.conan/
