@@ -1,1 +1,0 @@
-/usr/bin/g++ -O3 -DNDEBUG CMakeFiles/simple_tests.dir/tests/test_catalog.cpp.o -o simple_tests  libcustomdb_client.a 

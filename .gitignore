@@ -214,4 +214,5 @@ callgrind.out*
 cachegrind.out*
 
 # Conan cache
-.conan/
+.conan/vcpkg/
+vcpkg_installed/

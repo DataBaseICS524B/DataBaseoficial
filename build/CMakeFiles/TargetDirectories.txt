@@ -1,9 +1,0 @@
-/home/roman/DataBaseoficial/build/CMakeFiles/customdb_client.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/simple_tests.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/full_test.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/edit_cache.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/rebuild_cache.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/list_install_components.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/install.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/install/local.dir
-/home/roman/DataBaseoficial/build/CMakeFiles/install/strip.dir
