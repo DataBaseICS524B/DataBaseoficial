@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  customdb-server:
+    build: .
+    container_name: customdb-server
+    ports:
+      - "5432:5432"
+    volumes:
+      - customdb-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  customdb-data:

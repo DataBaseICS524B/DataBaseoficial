@@ -46,20 +46,34 @@ public:
     void dropTable(const std::string& dbName, const std::string& tableName);
     Table* getTable(const std::string& dbName, const std::string& tableName);
     
+    // NEW: Аудит
+    void logChange(const std::string& tableName, const std::string& operation,
+                   const std::string& oldData, const std::string& newData);
+    
+    // NEW: Хранимые процедуры
+    void createProcedure(const std::string& name, const std::string& sql);
+    std::string getProcedure(const std::string& name) const;
+    std::vector<std::string> listProcedures() const;
+
 private:
     // Приватный конструктор (Singleton)
     Catalog() : storageEngine_(nullptr), initialized_(false) {}
     
     void loadAllDatabases();
     void saveDatabase(const std::string& dbName);
+    void loadProcedures();
+    void saveProcedures();
     
 private:
     std::unordered_map<std::string, std::unique_ptr<Database>> databases_;
     std::string currentDatabaseName_;
     StorageEngine* storageEngine_;
     bool initialized_;
+    
+    // NEW: хранилище процедур
+    std::unordered_map<std::string, std::string> procedures_;
 };
 
 } // namespace customdb
 
-#endif
+#endif // CATALOG_H

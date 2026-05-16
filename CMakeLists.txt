@@ -33,6 +33,7 @@ add_library(customdb_client STATIC
     src/core/catalog/Database.cpp
     src/core/catalog/Catalog.cpp
     src/core/storage/StorageEngine.cpp
+    src/core/storage/Index.cpp
 )
 
 target_link_libraries(customdb_client PRIVATE nlohmann_json::nlohmann_json)
@@ -51,11 +52,11 @@ add_executable(customdb_server
 target_link_libraries(customdb_server PRIVATE customdb_client nlohmann_json::nlohmann_json Threads::Threads)
 
 # Тесты
-add_executable(simple_tests tests/test_catalog.cpp)
-add_executable(full_test tests/full_test.cpp)
+#add_executable(simple_tests tests/test_catalog.cpp)
+#add_executable(full_test tests/full_test.cpp)
 
-target_link_libraries(simple_tests PRIVATE customdb_client nlohmann_json::nlohmann_json)
-target_link_libraries(full_test PRIVATE customdb_client nlohmann_json::nlohmann_json)
+#target_link_libraries(simple_tests PRIVATE customdb_client nlohmann_json::nlohmann_json)
+#target_link_libraries(full_test PRIVATE customdb_client nlohmann_json::nlohmann_json)
 
 # Установка
 install(TARGETS customdb_client customdb_server

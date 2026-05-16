@@ -5,7 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
-#include <nlohmann/json.hpp>  // Потребуется установить через vcpkg
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -40,7 +40,6 @@ void StorageEngine::saveDatabase(const Database& database) {
     std::string dbPath = getDatabasePath(database.getName());
     ensureDirectoryExists(dbPath);
     
-    // Сохраняем метаданные базы данных
     json dbMeta;
     dbMeta["name"] = database.getName();
     dbMeta["created"] = fs::file_time_type::clock::now().time_since_epoch().count();
@@ -61,15 +60,13 @@ std::unique_ptr<Database> StorageEngine::loadDatabase(const std::string& dbName)
     
     auto database = std::make_unique<Database>(dbName);
     
-    // Загружаем все таблицы в этой базе данных
     for (const auto& entry : fs::directory_iterator(dbPath)) {
         if (entry.path().extension() == ".json" && entry.path().filename() != "metadata.json") {
             std::string tableName = entry.path().stem().string();
             auto table = loadTable(dbName, tableName);
             if (table) {
-                // Добавляем таблицу в базу данных (нужно добавить метод addTable в Database)
-                // Пока просто выводим
-                std::cout << "Loaded table: " << tableName << std::endl;
+                database->addTable(std::move(table));
+                std::cout << "[Storage] Loaded table: " << tableName << std::endl;
             }
         }
     }
@@ -91,13 +88,15 @@ void StorageEngine::saveTable(const Table& table, const std::string& dbName) {
     json tableJson;
     tableJson["name"] = table.getName();
     
-    // Сохраняем схему таблицы
+    // Сохраняем схему таблицы с флагами AUTO_INCREMENT и UNIQUE
     json columnsJson = json::array();
     for (const auto& col : table.getColumns()) {
         json colJson;
         colJson["name"] = col.getName();
         colJson["type"] = static_cast<int>(col.getType());
         colJson["varchar_length"] = col.getVarcharLength();
+        colJson["auto_increment"] = col.isAutoIncrement();  // NEW
+        colJson["unique"] = col.isUnique();                // NEW
         columnsJson.push_back(colJson);
     }
     tableJson["columns"] = columnsJson;
@@ -131,13 +130,19 @@ std::unique_ptr<Table> StorageEngine::loadTable(const std::string& dbName, const
     file >> tableJson;
     file.close();
     
-    // Восстанавливаем колонки
+    // Восстанавливаем колонки с флагами
     std::vector<Column> columns;
     for (const auto& colJson : tableJson["columns"]) {
         std::string name = colJson["name"];
         DataType type = static_cast<DataType>(colJson["type"]);
         int varcharLen = colJson.value("varchar_length", 0);
-        columns.emplace_back(name, type, varcharLen);
+        Column col(name, type, varcharLen);
+        // NEW: восстановление флагов
+        if (colJson.contains("auto_increment"))
+            col.setAutoIncrement(colJson["auto_increment"].get<bool>());
+        if (colJson.contains("unique"))
+            col.setUnique(colJson["unique"].get<bool>());
+        columns.push_back(col);
     }
     
     auto table = std::make_unique<Table>(tableJson["name"]);

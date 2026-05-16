@@ -23,6 +23,9 @@ public:
     // Инициализация (создание папки data/)
     void initialize(const std::string& dataPath = "data");
     
+    // Получение пути к данным (для аудита и процедур)
+    std::string getDataPath() const { return dataPath_; }
+    
     // Сохранение и загрузка баз данных
     void saveDatabase(const Database& database);
     std::unique_ptr<Database> loadDatabase(const std::string& dbName);
@@ -51,4 +54,4 @@ private:
 
 } // namespace customdb
 
-#endif
+#endif // STORAGE_ENGINE_H

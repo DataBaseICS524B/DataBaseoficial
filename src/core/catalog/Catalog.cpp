@@ -4,6 +4,10 @@
 #include <stdexcept>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 namespace customdb {
 
@@ -21,6 +25,7 @@ void Catalog::initialize(const std::string& dataPath) {
     storageEngine_->initialize(dataPath);
     
     loadAllDatabases();
+    loadProcedures();          // <-- добавлено
     initialized_ = true;
 }
 
@@ -47,7 +52,6 @@ void Catalog::saveDatabase(const std::string& dbName) {
     if (it != databases_.end()) {
         storageEngine_->saveDatabase(*it->second);
         
-        // Сохраняем каждую таблицу
         for (const auto& [tableName, table] : it->second->getTables()) {
             storageEngine_->saveTable(*table, dbName);
         }
@@ -70,24 +74,17 @@ void Catalog::dropDatabase(const std::string& dbName) {
         throw std::runtime_error("Database " + dbName + " does not exist");
     }
     
-    // Удаляем из storage
     storageEngine_->deleteDatabase(dbName);
-    
-    // Если удаляем текущую БД, сбрасываем currentDatabase
     if (currentDatabaseName_ == dbName) {
         currentDatabaseName_.clear();
     }
-    
     databases_.erase(it);
     std::cout << "[Catalog] Dropped database: " << dbName << std::endl;
 }
 
 Database* Catalog::getDatabase(const std::string& dbName) {
     auto it = databases_.find(dbName);
-    if (it != databases_.end()) {
-        return it->second.get();
-    }
-    return nullptr;
+    return it != databases_.end() ? it->second.get() : nullptr;
 }
 
 const std::unordered_map<std::string, std::unique_ptr<Database>>& Catalog::getDatabases() const {
@@ -124,7 +121,6 @@ std::string Catalog::getCurrentDatabaseName() const {
     return currentDatabaseName_;
 }
 
-// ОДНА реализация createTable (удали дубликат)
 void Catalog::createTable(const std::string& dbName, const std::string& tableName, const std::vector<Column>& columns) {
     Database* db = getDatabase(dbName);
     if (!db) {
@@ -140,7 +136,6 @@ void Catalog::createTable(const std::string& dbName, const std::string& tableNam
     std::cout << "[Catalog] Created table: " << tableName << " in database: " << dbName << std::endl;
 }
 
-// ОДНА реализация dropTable (удали дубликат)
 void Catalog::dropTable(const std::string& dbName, const std::string& tableName) {
     Database* db = getDatabase(dbName);
     if (!db) {
@@ -155,13 +150,74 @@ void Catalog::dropTable(const std::string& dbName, const std::string& tableName)
     std::cout << "[Catalog] Dropped table: " << tableName << " from database: " << dbName << std::endl;
 }
 
-// ОДНА реализация getTable (удали дубликат)
 Table* Catalog::getTable(const std::string& dbName, const std::string& tableName) {
     Database* db = getDatabase(dbName);
-    if (!db) {
-        return nullptr;
+    return db ? db->getTable(tableName) : nullptr;
+}
+
+// ----- NEW: Audit log -----
+void Catalog::logChange(const std::string& tableName, const std::string& operation,
+                        const std::string& oldData, const std::string& newData) {
+    std::string auditPath = storageEngine_->getDataPath() + "/_audit_log.json";
+    json audit;
+    std::ifstream infile(auditPath);
+    if (infile.is_open()) {
+        infile >> audit;
+        infile.close();
     }
-    return db->getTable(tableName);
+    json entry;
+    entry["timestamp"] = std::time(nullptr);
+    entry["table"] = tableName;
+    entry["operation"] = operation;
+    entry["old_data"] = oldData;
+    entry["new_data"] = newData;
+    audit["logs"].push_back(entry);
+    std::ofstream outfile(auditPath);
+    outfile << audit.dump(4);
+    outfile.close();
+}
+
+// ----- NEW: Stored procedures -----
+void Catalog::loadProcedures() {
+    std::string procPath = storageEngine_->getDataPath() + "/_procedures.json";
+    json j;
+    std::ifstream infile(procPath);
+    if (infile.is_open()) {
+        infile >> j;
+        infile.close();
+        for (auto& [name, sql] : j.items()) {
+            procedures_[name] = sql;
+        }
+    }
+}
+
+void Catalog::saveProcedures() {
+    std::string procPath = storageEngine_->getDataPath() + "/_procedures.json";
+    json j;
+    for (const auto& [name, sql] : procedures_) {
+        j[name] = sql;
+    }
+    std::ofstream outfile(procPath);
+    outfile << j.dump(4);
+    outfile.close();
+}
+
+void Catalog::createProcedure(const std::string& name, const std::string& sql) {
+    procedures_[name] = sql;
+    saveProcedures();
+}
+
+std::string Catalog::getProcedure(const std::string& name) const {
+    auto it = procedures_.find(name);
+    return (it != procedures_.end()) ? it->second : "";
+}
+
+std::vector<std::string> Catalog::listProcedures() const {
+    std::vector<std::string> res;
+    for (const auto& [name, _] : procedures_) {
+        res.push_back(name);
+    }
+    return res;
 }
 
 } // namespace customdb
