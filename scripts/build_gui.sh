@@ -1,0 +1,20 @@
+#!/bin/bash
+# build_gui.sh - Пояснение по сборке GUI на Windows
+
+echo "========================================="
+echo "CustomDB GUI (WPF) build helper"
+echo "========================================="
+echo ""
+echo "NOTE: CustomDB GUI is a WPF application and can only be built on Windows."
+echo ""
+echo "To build and run the GUI on Windows:"
+echo "  1. Copy the 'gui' folder to a Windows machine (or open from WSL path)."
+echo "  2. Open a Command Prompt or PowerShell in the 'src/gui' directory."
+echo "  3. Run: dotnet build -c Release"
+echo "  4. Run: dotnet run"
+echo ""
+echo "Alternatively, use the provided build_gui.bat script on Windows."
+echo ""
+echo "If you have .NET SDK installed on Windows, you can also open"
+echo "the solution file CustomDB.GUI.sln in Visual Studio."
+echo "========================================="

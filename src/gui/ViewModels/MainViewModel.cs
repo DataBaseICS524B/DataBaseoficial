@@ -55,7 +55,6 @@ namespace CustomDB.UI.ViewModels
         private string _connectionStatus = "Disconnected";
         private bool _isConnected = false;
         private bool _isBusy = false;
-        private string _selectedHistoryQuery = string.Empty;
         private QueryResultViewModel _queryResult = new();
 
         private RelayCommand? _connectCommand;
@@ -66,20 +65,18 @@ namespace CustomDB.UI.ViewModels
         public MainViewModel()
         {
             _dbService = new DatabaseService();
-            LoadSettings();
-            LoadQueryHistory();
         }
 
         public string Host
         {
             get => _host;
-            set { _host = value; OnPropertyChanged(); SaveSettings(); }
+            set { _host = value; OnPropertyChanged(); }
         }
 
         public int Port
         {
             get => _port;
-            set { _port = value; OnPropertyChanged(); SaveSettings(); }
+            set { _port = value; OnPropertyChanged(); }
         }
 
         public string Query
@@ -128,40 +125,17 @@ namespace CustomDB.UI.ViewModels
 
         public ObservableCollection<string> QueryHistory { get; } = new();
 
-        public string SelectedHistoryQuery
-        {
-            get => _selectedHistoryQuery;
-            set
-            {
-                _selectedHistoryQuery = value;
-                OnPropertyChanged();
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    Query = value;
-                }
-            }
-        }
-
         public ICommand ConnectCommand => _connectCommand ??= new RelayCommand(_ => Connect(), _ => !IsBusy && !IsConnected);
         public ICommand DisconnectCommand => _disconnectCommand ??= new RelayCommand(_ => Disconnect(), _ => !IsBusy && IsConnected);
-        public ICommand ExecuteCommand => _executeCommand ??= new RelayCommand(_ => ExecuteQueryAsync(), _ => !IsBusy && IsConnected && !string.IsNullOrWhiteSpace(Query));
+        public ICommand ExecuteCommand => _executeCommand ??= new RelayCommand(_ => ExecuteQuery(), _ => !IsBusy && IsConnected && !string.IsNullOrWhiteSpace(Query));
         public ICommand ClearCommand => _clearCommand ??= new RelayCommand(_ => Clear());
 
-        private void Connect()
-        {
-            Task.Run(async () => await ConnectAsync());
-        }
-
-        private async Task ConnectAsync()
+        private async void Connect()
         {
             IsBusy = true;
             ConnectionStatus = "Connecting...";
-            QueryResult.Clear();
-
             await Task.Delay(100);
-
-            string result = _dbService.Connect(Host, Port);
-
+            string result = await Task.Run(() => _dbService.Connect(Host, Port));
             Application.Current.Dispatcher.Invoke(() =>
             {
                 if (_dbService.IsConnected)
@@ -182,25 +156,13 @@ namespace CustomDB.UI.ViewModels
 
         private void Disconnect()
         {
-            Task.Run(async () => await DisconnectAsync());
+            _dbService.Disconnect();
+            IsConnected = false;
+            ConnectionStatus = "Disconnected";
+            QueryResult.Clear();
         }
 
-        private async Task DisconnectAsync()
-        {
-            IsBusy = true;
-            await Task.Delay(100);
-
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                _dbService.Disconnect();
-                IsConnected = false;
-                ConnectionStatus = "Disconnected";
-                QueryResult.Clear();
-                IsBusy = false;
-            });
-        }
-
-        private async void ExecuteQueryAsync()
+        private async void ExecuteQuery()
         {
             if (string.IsNullOrWhiteSpace(Query))
                 return;
@@ -209,16 +171,19 @@ namespace CustomDB.UI.ViewModels
             QueryResult.Clear();
             QueryResult.StatusMessage = "Executing...";
 
-            await Task.Run(() =>
-            {
-                var result = _dbService.ExecuteQuery(Query);
+            var execResult = await Task.Run(() => _dbService.ExecuteQuery(Query));
 
-                Application.Current.Dispatcher.Invoke(() =>
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                ProcessResult(execResult);
+                // Добавляем в историю (опционально, без сохранения в Settings)
+                if (!QueryHistory.Contains(Query))
                 {
-                    ProcessResult(result);
-                    AddToHistory(Query);
-                    IsBusy = false;
-                });
+                    QueryHistory.Insert(0, Query);
+                    if (QueryHistory.Count > 20)
+                        QueryHistory.RemoveAt(QueryHistory.Count - 1);
+                }
+                IsBusy = false;
             });
         }
 
@@ -232,25 +197,21 @@ namespace CustomDB.UI.ViewModels
                     QueryResult.StatusMessage = $"Selected {dataTable.Rows.Count} row(s)";
                     QueryResult.HasError = false;
                     break;
-
                 case "dml":
                     QueryResult.ResultData = new DataTable();
                     QueryResult.StatusMessage = $"Affected rows: {result.AffectedRows}";
                     QueryResult.HasError = false;
                     break;
-
                 case "ddl":
                     QueryResult.ResultData = new DataTable();
                     QueryResult.StatusMessage = $"OK - {result.Status}";
                     QueryResult.HasError = false;
                     break;
-
                 case "error":
                     QueryResult.ResultData = new DataTable();
                     QueryResult.StatusMessage = $"Error: {result.Error}";
                     QueryResult.HasError = true;
                     break;
-
                 default:
                     QueryResult.ResultData = new DataTable();
                     QueryResult.StatusMessage = $"Unknown result type: {result.Type}";
@@ -263,75 +224,6 @@ namespace CustomDB.UI.ViewModels
         {
             Query = string.Empty;
             QueryResult.Clear();
-        }
-
-        private void AddToHistory(string query)
-        {
-            if (string.IsNullOrWhiteSpace(query))
-                return;
-
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                if (!QueryHistory.Contains(query))
-                {
-                    QueryHistory.Insert(0, query);
-                    if (QueryHistory.Count > 20)
-                        QueryHistory.RemoveAt(QueryHistory.Count - 1);
-                    SaveQueryHistory();
-                }
-            });
-        }
-
-        private void LoadSettings()
-        {
-            try
-            {
-                Host = Properties.Settings.Default.Host;
-                Port = Properties.Settings.Default.Port;
-            }
-            catch
-            {
-                Host = "localhost";
-                Port = 5432;
-            }
-        }
-
-        private void SaveSettings()
-        {
-            try
-            {
-                Properties.Settings.Default.Host = Host;
-                Properties.Settings.Default.Port = Port;
-                Properties.Settings.Default.Save();
-            }
-            catch { }
-        }
-
-        private void LoadQueryHistory()
-        {
-            try
-            {
-                var history = Properties.Settings.Default.QueryHistory;
-                if (!string.IsNullOrEmpty(history))
-                {
-                    var items = history.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var item in items)
-                    {
-                        QueryHistory.Add(item);
-                    }
-                }
-            }
-            catch { }
-        }
-
-        private void SaveQueryHistory()
-        {
-            try
-            {
-                Properties.Settings.Default.QueryHistory = string.Join("|", QueryHistory);
-                Properties.Settings.Default.Save();
-            }
-            catch { }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

@@ -37,21 +37,21 @@ if ! command -v cmake &> /dev/null; then
 fi
 echo "CMake version: $(cmake --version | head -n1)"
 
-# Устанавливаем vcpkg если нужно
-if [ ! -d "vcpkg" ]; then
+# # Устанавливаем vcpkg если нужно
+# if [ ! -d "vcpkg" ]; then
     echo ""
-    echo "Step 2: Installing vcpkg..."
-    git clone https://github.com/microsoft/vcpkg.git
-    ./vcpkg/bootstrap-vcpkg.sh
-else
-    echo ""
-    echo "Step 2: vcpkg already installed"
-fi
+#     echo "Step 2: Installing vcpkg..."
+#     git clone https://github.com/microsoft/vcpkg.git
+#     ./vcpkg/bootstrap-vcpkg.sh
+#else
+#    echo ""
+#     echo "Step 2: vcpkg already installed"
+#fi
 
-# Устанавливаем зависимости через манифест (просто запускаем vcpkg install без аргументов)
+# # Устанавливаем зависимости через манифест (просто запускаем vcpkg install без аргументов)
 echo ""
-echo "Step 3: Installing dependencies via vcpkg (manifest mode)..."
-./vcpkg/vcpkg install --triplet x64-linux
+# echo "Step 3: Installing dependencies via vcpkg (manifest mode)..."
+# ./vcpkg/vcpkg install --triplet x64-linux
 
 # Создаём папку для сборки
 echo ""
@@ -59,11 +59,11 @@ echo "Step 4: Configuring CMake..."
 mkdir -p build
 cd build
 
-# Запускаем CMake с vcpkg toolchain
-cmake .. \
-    -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_STANDARD=17
+# # Запускаем CMake с vcpkg toolchain
+#cmake .. \
+#     -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake \
+#    -DCMAKE_BUILD_TYPE=Release \
+#    -DCMAKE_CXX_STANDARD=17
 
 # Собираем проект
 echo ""

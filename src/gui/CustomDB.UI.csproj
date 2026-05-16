@@ -8,6 +8,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>CustomDB.UI</AssemblyName>
     <RootNamespace>CustomDB.UI</RootNamespace>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <ItemGroup>

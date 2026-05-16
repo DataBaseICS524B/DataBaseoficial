@@ -8,6 +8,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <arpa/inet.h>
 
 #ifdef _WIN32
     #include <winsock2.h>

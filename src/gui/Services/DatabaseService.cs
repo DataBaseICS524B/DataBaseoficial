@@ -1,25 +1,27 @@
 using System;
 using System.Data;
-using System.Runtime.InteropServices;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
 
 namespace CustomDB.UI.Services
 {
     public class QueryResult
     {
-        public string Type { get; set; } = string.Empty;
+        public string Type { get; set; } = "";
         public List<string> Columns { get; set; } = new();
         public List<List<object>> Rows { get; set; } = new();
         public int AffectedRows { get; set; }
-        public string Status { get; set; } = string.Empty;
-        public string Error { get; set; } = string.Empty;
+        public string Status { get; set; } = "";
+        public string Error { get; set; } = "";
     }
 
     public class DatabaseService
     {
-        private IntPtr _connection = IntPtr.Zero;
-        private bool _isConnected = false;
+        private TcpClient? _client;
+        private NetworkStream? _stream;
+        private bool _isConnected;
 
         public bool IsConnected => _isConnected;
 
@@ -27,48 +29,51 @@ namespace CustomDB.UI.Services
         {
             try
             {
-                _connection = NativeMethods.db_connect(host, port);
-                if (_connection != IntPtr.Zero)
-                {
-                    _isConnected = true;
-                    return "Connected successfully";
-                }
-                return "Connection failed";
+                _client = new TcpClient();
+                _client.Connect(host, port);
+                _stream = _client.GetStream();
+                _isConnected = true;
+                return "Connected successfully";
             }
             catch (Exception ex)
             {
-                return $"Connection error: {ex.Message}";
+                _isConnected = false;
+                return $"Connection failed: {ex.Message}";
             }
         }
 
         public QueryResult ExecuteQuery(string query)
         {
-            if (!_isConnected || _connection == IntPtr.Zero)
-            {
-                return new QueryResult { Type = "error", Error = "Not connected to database" };
-            }
+            if (!_isConnected || _stream == null)
+                return new QueryResult { Type = "error", Error = "Not connected" };
 
             try
             {
-                IntPtr resultPtr = NativeMethods.db_execute(_connection, query);
-                if (resultPtr == IntPtr.Zero)
-                {
-                    return new QueryResult { Type = "error", Error = "No result returned" };
-                }
+                byte[] queryBytes = Encoding.UTF8.GetBytes(query);
+                byte[] len = BitConverter.GetBytes(queryBytes.Length);
+                if (BitConverter.IsLittleEndian) Array.Reverse(len);
+                _stream.Write(len, 0, 4);
+                _stream.Write(queryBytes, 0, queryBytes.Length);
 
-                string jsonResult = Marshal.PtrToStringUTF8(resultPtr) ?? string.Empty;
-                NativeMethods.db_free_string(resultPtr);
+                byte[] status = new byte[4];
+                _stream.Read(status, 0, 4);
 
-                if (string.IsNullOrEmpty(jsonResult))
-                {
-                    return new QueryResult { Type = "error", Error = "Empty result" };
-                }
+                byte[] dataLenBytes = new byte[4];
+                _stream.Read(dataLenBytes, 0, 4);
+                if (BitConverter.IsLittleEndian) Array.Reverse(dataLenBytes);
+                int dataLen = BitConverter.ToInt32(dataLenBytes, 0);
 
-                return ParseResult(jsonResult);
+                byte[] response = new byte[dataLen];
+                int received = 0;
+                while (received < dataLen)
+                    received += _stream.Read(response, received, dataLen - received);
+
+                string json = Encoding.UTF8.GetString(response);
+                return ParseResult(json);
             }
             catch (Exception ex)
             {
-                return new QueryResult { Type = "error", Error = $"Execution error: {ex.Message}" };
+                return new QueryResult { Type = "error", Error = ex.Message };
             }
         }
 
@@ -76,76 +81,65 @@ namespace CustomDB.UI.Services
         {
             try
             {
-                var obj = JObject.Parse(json);
-                var result = new QueryResult();
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                string type = root.GetProperty("type").GetString() ?? "error";
+                var result = new QueryResult { Type = type };
 
-                result.Type = obj["type"]?.ToString() ?? "error";
-
-                switch (result.Type)
+                if (type == "select")
                 {
-                    case "select":
-                        result.Columns = obj["columns"]?.ToObject<List<string>>() ?? new List<string>();
-                        result.Rows = obj["rows"]?.ToObject<List<List<object>>>() ?? new List<List<object>>();
-                        break;
-
-                    case "dml":
-                        result.AffectedRows = obj["affected_rows"]?.Value<int>() ?? 0;
-                        break;
-
-                    case "ddl":
-                        result.Status = obj["status"]?.ToString() ?? "OK";
-                        break;
-
-                    case "error":
-                        result.Error = obj["error"]?.ToString() ?? "Unknown error";
-                        break;
-
-                    default:
-                        result.Error = $"Unknown result type: {result.Type}";
-                        break;
+                    if (root.TryGetProperty("columns", out var cols))
+                        foreach (var c in cols.EnumerateArray())
+                            result.Columns.Add(c.GetString() ?? "");
+                    if (root.TryGetProperty("rows", out var rows))
+                        foreach (var row in rows.EnumerateArray())
+                        {
+                            var rowList = new List<object>();
+                            foreach (var val in row.EnumerateArray())
+                                rowList.Add(val.GetString() ?? "");
+                            result.Rows.Add(rowList);
+                        }
                 }
-
+                else if (type == "dml")
+                {
+                    result.AffectedRows = root.GetProperty("affected_rows").GetInt32();
+                }
+                else if (type == "ddl")
+                {
+                    result.Status = root.GetProperty("message").GetString() ?? "OK";
+                }
+                else if (type == "error")
+                {
+                    result.Error = root.GetProperty("message").GetString() ?? "Unknown error";
+                }
                 return result;
             }
             catch (Exception ex)
             {
-                return new QueryResult { Type = "error", Error = $"JSON parse error: {ex.Message}" };
+                return new QueryResult { Type = "error", Error = $"JSON parse: {ex.Message}" };
             }
         }
 
         public DataTable ResultToDataTable(QueryResult result)
         {
-            var dataTable = new DataTable();
-
-            if (result.Type != "select" || result.Columns.Count == 0)
-                return dataTable;
-
-            foreach (var col in result.Columns)
-            {
-                dataTable.Columns.Add(col, typeof(string));
-            }
-
+            var dt = new DataTable();
+            if (result.Type != "select") return dt;
+            foreach (var col in result.Columns) dt.Columns.Add(col, typeof(string));
             foreach (var row in result.Rows)
             {
-                var dataRow = dataTable.NewRow();
+                var dr = dt.NewRow();
                 for (int i = 0; i < row.Count && i < result.Columns.Count; i++)
-                {
-                    dataRow[i] = row[i]?.ToString() ?? string.Empty;
-                }
-                dataTable.Rows.Add(dataRow);
+                    dr[i] = row[i]?.ToString() ?? "";
+                dt.Rows.Add(dr);
             }
-
-            return dataTable;
+            return dt;
         }
 
         public void Disconnect()
         {
-            if (_isConnected && _connection != IntPtr.Zero)
-            {
-                NativeMethods.db_disconnect(_connection);
-                _connection = IntPtr.Zero;
-                _isConnected = false;
-            }
+            _stream?.Close();
+            _client?.Close();
+            _isConnected = false;
         }
     }
 }
