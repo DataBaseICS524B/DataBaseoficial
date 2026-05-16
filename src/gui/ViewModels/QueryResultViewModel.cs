@@ -13,19 +13,31 @@ namespace CustomDB.UI.ViewModels
         public DataTable ResultData
         {
             get => _resultData;
-            set { _resultData = value; OnPropertyChanged(); }
+            set
+            {
+                _resultData = value;
+                OnPropertyChanged();
+            }
         }
 
         public string StatusMessage
         {
             get => _statusMessage;
-            set { _statusMessage = value; OnPropertyChanged(); }
+            set
+            {
+                _statusMessage = value;
+                OnPropertyChanged();
+            }
         }
 
         public bool HasError
         {
             get => _hasError;
-            set { _hasError = value; OnPropertyChanged(); }
+            set
+            {
+                _hasError = value;
+                OnPropertyChanged();
+            }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
