@@ -1,4 +1,3 @@
-// src/lib/DatabaseClient.cpp
 #include "DatabaseClient.h"
 #include "Connection.h"
 #include <stdexcept>
@@ -55,4 +54,4 @@ std::string DatabaseClient::execute(const std::string& query) {
     return pImpl_->execute(query);
 }
 
-} // namespace customdb
+}

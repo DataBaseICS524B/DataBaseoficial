@@ -19,7 +19,7 @@ void signalHandler(int signum) {
 }
 
 int main(int argc, char* argv[]) {
-    std::string host = "127.0.0.1";
+    std::string host = "0.0.0.0";
     int port = 5432;
     
     for (int i = 1; i < argc; i++) {

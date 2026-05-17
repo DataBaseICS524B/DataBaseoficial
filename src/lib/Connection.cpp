@@ -3,7 +3,6 @@
 #include <cstring>
 #include <stdexcept>
 #include <vector>
-#include <arpa/inet.h>
 
 #ifdef _WIN32
     #include <winsock2.h>

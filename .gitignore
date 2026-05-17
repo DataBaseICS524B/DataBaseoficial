@@ -4,7 +4,7 @@ cmake-build-*/
 out/
 bin/
 obj/
-lib/
+/lib/
 __pycache__/
 
 # IDE files
@@ -105,7 +105,7 @@ temp/
 
 # Docker
 .dockerignore
-Dockerfile
+#Dockerfile
 *.tar
 
 # Environment
@@ -216,3 +216,4 @@ cachegrind.out*
 # Conan cache
 .conan/vcpkg/
 vcpkg_installed/
+publish/
