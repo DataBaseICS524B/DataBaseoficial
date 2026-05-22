@@ -80,5 +80,7 @@ if(BUILD_TESTS)
     )
     FetchContent_MakeAvailable(googletest)
 
-    add_subdirectory(tests)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
+        add_subdirectory(tests)
+    endif()
 endif()

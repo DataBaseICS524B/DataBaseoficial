@@ -2,18 +2,27 @@
 
 ## Обзор
 
-Библиотека `libcustomdb` предоставляет ядро СУБД с поддержкой:
-- Метаданных (базы данных, таблицы, колонки)
-- Постоянного хранилища (сохранение между запусками)
-- Клиент-серверного взаимодействия
-- C API для интеграции с другими языками (C#)
+Библиотека libcustomdb предоставляет ядро СУБД с поддержкой:
+Метаданных (базы данных, таблицы, колонки)
+Постоянного хранилища (JSON-файлы)
+Клиент-серверного взаимодействия по TCP
+C API для P/Invoke из C#
+AUTO_INCREMENT – автоматическая генерация ID
+UNIQUE constraint – защита от дубликатов
+Массивы (TEXT[]) – хранение массивов строк
+Индексы – ускоренный поиск по колонкам
+Полнотекстовый поиск – поиск с ранжированием
+Аудит изменений – журнал всех операций
+Хранимые процедуры – сохранение SQL-скриптов
 
 ## Архитектура
 
 ### Паттерны проектирования
 
-1. **Singleton** - `Catalog` (единственный экземпляр каталога БД)
-2. **Repository** - `StorageEngine` (инкапсуляция операций с хранилищем)
+Паттерн	Применение	Причина выбора
+Singleton	Catalog	Единственный экземпляр каталога БД на весь сервер
+Repository	StorageEngine	Инкапсуляция операций с файловым хранилищем
+Pimpl	DatabaseClient	Сокрытие деталей реализации от клиента
 
 ### Компоненты
 ```text
@@ -222,46 +231,19 @@ int main() {
     return 0;
 }
 ```
-### C# клиент (P/Invoke)
-```csharp
-using System.Runtime.InteropServices;
 
-public class CustomDBClient {
-    [DllImport("libcustomdb")]
-    private static extern IntPtr db_connect(string host, int port);
-    
-    [DllImport("libcustomdb")]
-    private static extern IntPtr db_execute(IntPtr conn, string query);
-    
-    [DllImport("libcustomdb")]
-    private static extern void db_disconnect(IntPtr conn);
-    
-    [DllImport("libcustomdb")]
-    private static extern void db_free_string(IntPtr str);
-    
-    private IntPtr _connection;
-    
-    public void Connect(string host, int port) {
-        _connection = db_connect(host, port);
-        if (_connection == IntPtr.Zero)
-            throw new Exception("Connection failed");
-    }
-    
-    public string Execute(string query) {
-        IntPtr result = db_execute(_connection, query);
-        string json = Marshal.PtrToStringAnsi(result);
-        db_free_string(result);
-        return json;
-    }
-    
-    public void Disconnect() {
-        if (_connection != IntPtr.Zero) {
-            db_disconnect(_connection);
-            _connection = IntPtr.Zero;
-        }
-    }
-}
-```
+## Дополнительные функции библиотеки
+
+| Функция | Описание | SQL Пример |
+|---------|----------|------------|
+| **AUTO_INCREMENT** | Автогенерация ID | `CREATE TABLE users (id INT AUTO_INCREMENT, name TEXT)` |
+| **UNIQUE** | Запрет дубликатов | `CREATE TABLE users (email TEXT UNIQUE)` |
+| **Массивы (TEXT[])** | Массивы строк | `INSERT INTO users VALUES ('["admin","user"]')` |
+| **Индексы** | Ускоренный поиск | (API, не SQL) |
+| **Полнотекстовый поиск** | Поиск с ранжированием | (API, не SQL) |
+| **Аудит** | Журнал изменений | Автоматически в `_audit_log.json` |
+| **Хранимые процедуры** | Сохранение SQL | (API, не SQL) |
+
 ## Сборка
 ```bash
 ./scripts/build.sh

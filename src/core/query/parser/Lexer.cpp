@@ -20,7 +20,8 @@ std::unordered_map<std::string, TokenType> Lexer::keywords = {
     {"NOT", TokenType::NOT},
     {"EXISTS", TokenType::EXISTS},
     {"AND", TokenType::AND},
-    {"OR", TokenType::OR}
+    {"OR", TokenType::OR},
+    {"ARRAY", TokenType::ARRAY}  // НОВОЕ КЛЮЧЕВОЕ СЛОВО
 };
 
 Lexer::Lexer(const std::string& source)
@@ -83,12 +84,12 @@ Token Lexer::readNumber() {
 Token Lexer::readString() {
     std::string result;
     int startLine = line, startCol = column;
-    advance(); // пропустить '
+    advance();
     while (currentChar() != '\'' && currentChar() != '\0') {
         result += currentChar();
         advance();
     }
-    if (currentChar() == '\'') advance(); // пропустить '
+    if (currentChar() == '\'') advance();
     return Token(TokenType::STRING, result, startLine, startCol);
 }
 
@@ -120,13 +121,14 @@ Token Lexer::nextToken() {
     if (c == '(') { advance(); return Token(TokenType::LPAREN, "(", startLine, startCol); }
     if (c == ')') { advance(); return Token(TokenType::RPAREN, ")", startLine, startCol); }
     if (c == '.') { advance(); return Token(TokenType::DOT, ".", startLine, startCol); }
+    if (c == '[') { advance(); return Token(TokenType::LBRACKET, "[", startLine, startCol); }
+    if (c == ']') { advance(); return Token(TokenType::RBRACKET, "]", startLine, startCol); }   // НОВОЕ
 
     // Идентификаторы и числа
     if (std::isalpha(c) || c == '_') return readIdentifier();
     if (std::isdigit(c)) return readNumber();
     if (c == '\'') return readString();
 
-    // Неизвестный символ
     advance();
     return Token(TokenType::UNKNOWN, std::string(1, c), startLine, startCol);
 }
