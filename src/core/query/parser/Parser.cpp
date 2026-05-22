@@ -33,6 +33,37 @@ void Parser::error(const std::string& msg) {
                 ", column " + std::to_string(currentToken.column);
 }
 
+// НОВЫЙ МЕТОД: парсинг нескольких запросов, разделённых ;
+std::vector<std::unique_ptr<Query>> Parser::parseBatch() {
+    std::vector<std::unique_ptr<Query>> queries;
+    
+    while (currentToken.type != TokenType::END_OF_FILE) {
+        // Пропускаем пустые точки с запятой
+        if (currentToken.type == TokenType::SEMICOLON) {
+            advance();
+            continue;
+        }
+        
+        // Парсим один запрос
+        auto query = parse();
+        if (query) {
+            queries.push_back(std::move(query));
+        } else {
+            break; // Ошибка парсинга
+        }
+        
+        // После запроса ожидаем ; или конец
+        if (currentToken.type == TokenType::SEMICOLON) {
+            advance();
+        } else if (currentToken.type != TokenType::END_OF_FILE) {
+            error("Expected ';' after query");
+            break;
+        }
+    }
+    
+    return queries;
+}
+
 std::unique_ptr<Query> Parser::parse() {
     if (currentToken.type == TokenType::CREATE) return parseCreate();
     if (currentToken.type == TokenType::DROP) return parseDrop();
@@ -40,6 +71,7 @@ std::unique_ptr<Query> Parser::parse() {
     if (currentToken.type == TokenType::INSERT) return parseInsert();
     if (currentToken.type == TokenType::UPDATE) return parseUpdate();
     if (currentToken.type == TokenType::DELETE) return parseDelete();
+    if (currentToken.type == TokenType::USE) return parseUse();  // НОВОЕ
 
     error("Unknown query type");
     return nullptr;
@@ -162,7 +194,6 @@ std::unique_ptr<Query> Parser::parseSelect() {
 
     auto query = std::make_unique<Query>();
     query->type = Query::SELECT;
-    // Используем placement new или emplace
     query->data = std::move(select);
     return query;
 }
@@ -267,6 +298,20 @@ std::unique_ptr<Query> Parser::parseDelete() {
     return query;
 }
 
+// НОВЫЙ МЕТОД: парсинг USE database;
+std::unique_ptr<Query> Parser::parseUse() {
+    advance(); // пропустить USE
+    UseDatabaseQuery useQuery;
+    if (currentToken.type == TokenType::IDENTIFIER) {
+        useQuery.databaseName = currentToken.value;
+        advance();
+    }
+    auto query = std::make_unique<Query>();
+    query->type = Query::USE_DB;
+    query->data = useQuery;
+    return query;
+}
+
 std::vector<std::string> Parser::parseColumnList() {
     std::vector<std::string> columns;
     do {
@@ -342,6 +387,7 @@ DataType Parser::parseDataType() {
         return DataType::STRING;
     }
     if (typeStr == "BOOL" || typeStr == "BOOLEAN") return DataType::BOOL;
+    if (typeStr == "ARRAY") return DataType::ARRAY;
     return DataType::UNKNOWN;
 }
 
@@ -373,7 +419,33 @@ std::vector<Value> Parser::parseValueList() {
     return values;
 }
 
+Value Parser::parseArrayLiteral() {
+    std::vector<Value> elements;
+    
+    bool isBracketStyle = match(TokenType::LBRACKET);
+    
+    if (!isBracketStyle) {
+        expect(TokenType::ARRAY);
+        expect(TokenType::LBRACKET);
+    }
+    
+    if (currentToken.type != TokenType::RBRACKET) {
+        do {
+            elements.push_back(parseValue());
+        } while (match(TokenType::COMMA));
+    }
+    
+    expect(TokenType::RBRACKET);
+    
+    return Value(elements);
+}
+
 Value Parser::parseValue() {
+    if (currentToken.type == TokenType::LBRACKET || 
+        (currentToken.type == TokenType::ARRAY && lexer.peekToken().type == TokenType::LBRACKET)) {
+        return parseArrayLiteral();
+    }
+    
     if (currentToken.type == TokenType::NUMBER) {
         std::string num = currentToken.value;
         advance();

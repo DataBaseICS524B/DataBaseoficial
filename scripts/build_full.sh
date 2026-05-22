@@ -23,6 +23,7 @@ elif [ "$OS" = "Darwin" ]; then
 fi
 
 echo "[1/3] Сборка C++ сервера..."
+cd "$(dirname "$0")/.."
 rm -rf build 
 mkdir -p build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
