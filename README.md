@@ -424,20 +424,19 @@ docker rm customdb-server
 ## 6. Примеры использования
 ### 6.1. Полный сеанс работы
 ```sql
-CREATE DATABASE company;
-USE company;
-CREATE TABLE employees (
-    id INT AUTO_INCREMENT, 
-    name TEXT, 
-    email TEXT UNIQUE,
-    salary FLOAT
-);
-INSERT INTO employees (name, email, salary) VALUES ('Alice', 'alice@mail.com', 50000);
-INSERT INTO employees (name, email, salary) VALUES ('Bob', 'bob@mail.com', 60000);
-SELECT * FROM employees WHERE salary > 55000;
-UPDATE employees SET salary = 65000 WHERE name = 'Bob';
-DELETE FROM employees WHERE name = 'Alice';
+CREATE DATABASE full_test;
+USE full_test;
+CREATE TABLE employees (id INT AUTO_INCREMENT, name TEXT, email TEXT UNIQUE, department TEXT);
+INSERT INTO employees (name, email, department) VALUES ('Alice', 'alice@mail.com', '["IT"]');
+INSERT INTO employees (name, email, department) VALUES ('Bob', 'bob@mail.com', '["HR"]');
+INSERT INTO employees (name, email, department) VALUES ('Charlie', 'charlie@mail.com', '["IT"]');
 SELECT * FROM employees;
+SELECT name, department FROM employees WHERE id = 2;
+UPDATE employees SET department = '["IT","Management"]' WHERE name = 'Bob';
+DELETE FROM employees WHERE name = 'Charlie';
+SELECT * FROM employees;
+DROP TABLE employees;
+DROP DATABASE full_test;
 ```
 ### 6.2. Работа с массивами
 ```sql

@@ -163,7 +163,6 @@ std::string ClientSession::processQuery(const std::string& query) {
                         DataType::VARCHAR, 
                         varcharLen.empty() ? 255 : std::stoi(varcharLen));
                     
-                    // Проверяем модификаторы
                     std::string upperMod = modifiers;
                     std::transform(upperMod.begin(), upperMod.end(), upperMod.begin(), ::toupper);
                     if (upperMod.find("AUTO_INCREMENT") != std::string::npos) {
@@ -316,6 +315,7 @@ std::string ClientSession::processQuery(const std::string& query) {
             if (std::regex_search(singleQuery, match, selectRegex)) {
                 std::string columnsList = match[1];
                 std::string tableNameSel = match[2];
+                std::string whereCondition = match.size() > 3 && match[3].matched ? match[3].str() : "";
                 
                 std::string dbName = catalog.getCurrentDatabaseName();
                 if (dbName.empty()) dbName = "test_db";
@@ -346,14 +346,39 @@ std::string ClientSession::processQuery(const std::string& query) {
                 }
                 
                 std::vector<std::vector<std::string>> resultRows;
-                for (const auto& row : table->getRows()) {
-                    std::vector<std::string> resultRow;
-                    for (int idx : colIndices) {
-                        if (idx >= 0 && idx < (int)row.size()) {
-                            resultRow.push_back(row[idx]);
+                auto rows = table->getRows();
+                
+                for (size_t i = 0; i < rows.size(); ++i) {
+                    bool matchCondition = true;
+                    
+                    if (!whereCondition.empty()) {
+                        std::regex whereValRegex(R"(\s*(\w+)\s*=\s*'([^']*)'|\s*(\w+)\s*=\s*([^\s]+))");
+                        std::smatch whereMatch;
+                        if (std::regex_search(whereCondition, whereMatch, whereValRegex)) {
+                            std::string colName = whereMatch[1].matched ? whereMatch[1].str() : whereMatch[3].str();
+                            std::string colValue = whereMatch[2].matched ? whereMatch[2].str() : whereMatch[4].str();
+                            colValue = std::regex_replace(colValue, std::regex(R"(^\s+|\s+$)"), "");
+                            
+                            int colIdx = table->getColumnIndex(colName);
+                            if (colIdx >= 0 && colIdx < (int)rows[i].size()) {
+                                if (rows[i][colIdx] != colValue) {
+                                    matchCondition = false;
+                                }
+                            } else {
+                                matchCondition = false;
+                            }
                         }
                     }
-                    resultRows.push_back(resultRow);
+                    
+                    if (matchCondition) {
+                        std::vector<std::string> resultRow;
+                        for (int idx : colIndices) {
+                            if (idx >= 0 && idx < (int)rows[i].size()) {
+                                resultRow.push_back(rows[i][idx]);
+                            }
+                        }
+                        resultRows.push_back(resultRow);
+                    }
                 }
                 
                 lastResult = Protocol::createSelectResult(selectedCols, resultRows).dump();
@@ -361,10 +386,12 @@ std::string ClientSession::processQuery(const std::string& query) {
             }
             
             // UPDATE
-            std::regex updateRegex(R"(UPDATE\s+(\w+)\s+SET\s+(.+?)(?:\s+WHERE\s+(.+))?;?)", std::regex::icase);
-            if (std::regex_search(singleQuery, match, updateRegex)) {
-                std::string tableNameUp = match[1];
-                std::string setClause = match[2];
+            std::regex updateRegex(R"(UPDATE\s+(\w+)\s+SET\s+(.+?)(?:\s+WHERE\s+(.+))?$)", std::regex::icase);
+            std::smatch updateMatch;
+            if (std::regex_search(singleQuery, updateMatch, updateRegex)) {
+                std::string tableNameUp = updateMatch[1];
+                std::string setClause = updateMatch[2];
+                std::string whereCondition = updateMatch.size() > 3 && updateMatch[3].matched ? updateMatch[3].str() : "";
                 
                 std::string dbName = catalog.getCurrentDatabaseName();
                 if (dbName.empty()) dbName = "test_db";
@@ -375,8 +402,9 @@ std::string ClientSession::processQuery(const std::string& query) {
                     continue;
                 }
                 
-                std::regex setRegex(R"(\s*(\w+)\s*=\s*'([^']*)'|\s*(\w+)\s*=\s*([^,]+))");
+                // Парсим SET
                 std::vector<std::pair<int, std::string>> updates;
+                std::regex setRegex(R"(\s*(\w+)\s*=\s*'([^']*)'|\s*(\w+)\s*=\s*([^,]+))");
                 std::sregex_iterator sit(setClause.begin(), setClause.end(), setRegex);
                 std::sregex_iterator end;
                 for (; sit != end; ++sit) {
@@ -388,21 +416,52 @@ std::string ClientSession::processQuery(const std::string& query) {
                 }
                 
                 auto rows = table->getRows();
-                for (auto& row : rows) {
-                    for (const auto& [idx, val] : updates) {
-                        if (idx < (int)row.size()) row[idx] = val;
+                int affected = 0;
+                
+                for (size_t i = 0; i < rows.size(); ++i) {
+                    bool matchCondition = true;
+                    
+                    if (!whereCondition.empty()) {
+                        std::regex whereValRegex(R"(\s*(\w+)\s*=\s*'([^']*)'|\s*(\w+)\s*=\s*([^\s]+))");
+                        std::smatch whereMatch;
+                        if (std::regex_search(whereCondition, whereMatch, whereValRegex)) {
+                            std::string colName = whereMatch[1].matched ? whereMatch[1].str() : whereMatch[3].str();
+                            std::string colValue = whereMatch[2].matched ? whereMatch[2].str() : whereMatch[4].str();
+                            colValue = std::regex_replace(colValue, std::regex(R"(^\s+|\s+$)"), "");
+                            
+                            int colIdx = table->getColumnIndex(colName);
+                            if (colIdx >= 0 && colIdx < (int)rows[i].size()) {
+                                if (rows[i][colIdx] != colValue) {
+                                    matchCondition = false;
+                                }
+                            } else {
+                                matchCondition = false;
+                            }
+                        }
+                    }
+                    
+                    if (matchCondition) {
+                        for (const auto& [idx, val] : updates) {
+                            if (idx < (int)rows[i].size()) {
+                                rows[i][idx] = val;
+                            }
+                        }
+                        affected++;
                     }
                 }
+                
                 table->setRows(rows);
                 catalog.saveAll();
-                lastResult = Protocol::createDMLResult(rows.size()).dump();
+                lastResult = Protocol::createDMLResult(affected).dump();
                 continue;
             }
             
             // DELETE
-            std::regex deleteRegex(R"(DELETE\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?;?)", std::regex::icase);
-            if (std::regex_search(singleQuery, match, deleteRegex)) {
-                std::string tableNameDel = match[1];
+            std::regex deleteRegex(R"(DELETE\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?$)", std::regex::icase);
+            std::smatch deleteMatch;
+            if (std::regex_search(singleQuery, deleteMatch, deleteRegex)) {
+                std::string tableNameDel = deleteMatch[1];
+                std::string whereCondition = deleteMatch.size() > 2 && deleteMatch[2].matched ? deleteMatch[2].str() : "";
                 
                 std::string dbName = catalog.getCurrentDatabaseName();
                 if (dbName.empty()) dbName = "test_db";
@@ -413,8 +472,42 @@ std::string ClientSession::processQuery(const std::string& query) {
                     continue;
                 }
                 
-                int deletedCount = table->getRowCount();
-                table->clearRows();
+                auto rows = table->getRows();
+                std::vector<std::vector<std::string>> newRows;
+                int deletedCount = 0;
+                
+                for (size_t i = 0; i < rows.size(); ++i) {
+                    bool matchCondition = true;
+                    
+                    if (!whereCondition.empty()) {
+                        std::regex whereValRegex(R"(\s*(\w+)\s*=\s*'([^']*)'|\s*(\w+)\s*=\s*([^\s]+))");
+                        std::smatch whereMatch;
+                        if (std::regex_search(whereCondition, whereMatch, whereValRegex)) {
+                            std::string colName = whereMatch[1].matched ? whereMatch[1].str() : whereMatch[3].str();
+                            std::string colValue = whereMatch[2].matched ? whereMatch[2].str() : whereMatch[4].str();
+                            colValue = std::regex_replace(colValue, std::regex(R"(^\s+|\s+$)"), "");
+                            
+                            int colIdx = table->getColumnIndex(colName);
+                            if (colIdx >= 0 && colIdx < (int)rows[i].size()) {
+                                if (rows[i][colIdx] == colValue) {
+                                    matchCondition = true;
+                                } else {
+                                    matchCondition = false;
+                                }
+                            } else {
+                                matchCondition = false;
+                            }
+                        }
+                    }
+                    
+                    if (matchCondition) {
+                        deletedCount++;
+                    } else {
+                        newRows.push_back(rows[i]);
+                    }
+                }
+                
+                table->setRows(newRows);
                 catalog.saveAll();
                 lastResult = Protocol::createDMLResult(deletedCount).dump();
                 continue;
